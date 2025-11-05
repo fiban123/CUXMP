@@ -1,0 +1,9 @@
+CompileFlags:
+  CompilationDatabase: build/
+  Add: [
+    "--target=x86_64-w64-windows-gnu",
+    "-I/mingw64/include",
+    "-std=c++26",
+    "-D__attribute__(x)=",
+    "-D__declspec(x)="
+  ]

@@ -1,0 +1,58 @@
+[
+ {
+  "directory": "C:\\dev\\code\\cpp\\CUXMP\\build",
+  "arguments": [
+   "g++",
+   "-Wall",
+   "-Wextra",
+   "-std=c++26",
+   "-O1",
+   "-I../src",
+   "-I../include",
+   "-IC:/msys64/ucrt64/include",
+   "-I",
+   "C:/msys64/ucrt64/include",
+   "-I",
+   "C:/msys64/ucrt64/include/c++/12.2.0",
+   "-I",
+   "C:/msys64/ucrt64/include/c++/12.2.0/x86_64-w64-mingw32",
+   "-I",
+   "C:/msys64/ucrt64/x86_64-w64-mingw32/include",
+   "-MMD",
+   "-MP",
+   "-c",
+   "../src/main.cpp",
+   "-o",
+   ".obj/main.o"
+  ],
+  "file": "../src/main.cpp"
+ },
+ {
+  "directory": "C:\\dev\\code\\cpp\\CUXMP\\build",
+  "arguments": [
+   "g++",
+   "-Wall",
+   "-Wextra",
+   "-std=c++26",
+   "-O1",
+   "-I../src",
+   "-I../include",
+   "-IC:/msys64/ucrt64/include",
+   "-I",
+   "C:/msys64/ucrt64/include",
+   "-I",
+   "C:/msys64/ucrt64/include/c++/12.2.0",
+   "-I",
+   "C:/msys64/ucrt64/include/c++/12.2.0/x86_64-w64-mingw32",
+   "-I",
+   "C:/msys64/ucrt64/x86_64-w64-mingw32/include",
+   "-MMD",
+   "-MP",
+   "-c",
+   "../src/xmp.cpp",
+   "-o",
+   ".obj/xmp.o"
+  ],
+  "file": "../src/xmp.cpp"
+ }
+]
