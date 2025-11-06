@@ -1,5 +1,7 @@
 #include <cstdint>
 
+namespace xmp {
+
 using cuxmp_limb_t = uint32_t;
 using cuxmp_len_t = size_t;
 using cuxmp_stat_t = uint8_t;
@@ -16,7 +18,10 @@ constexpr char CUXMP_STR_CHARSET[] =
 
 // statuses
 constexpr cuxmp_stat_t CUXMP_STAT_OK = 0;
-constexpr cuxmp_stat_t CUXMP_STAT_OVERFLOW = 0;
+constexpr cuxmp_stat_t CUXMP_STAT_OVERFLOW = 1;
+constexpr cuxmp_stat_t CUXMP_STAT_DIV_BY_ZERO = 2;
 
 // shortcut macros
 #define CUXMP_ALWAYS_INLINE inline __attribute__((always_inline))
+
+}  // namespace xmp
