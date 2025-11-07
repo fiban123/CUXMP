@@ -24,4 +24,6 @@ struct xmpz_t {
     CUXMP_ALWAYS_INLINE void free() { std::free(limbs); }
 };
 
+using xmpz_arr_t = xmpz_t*;
+
 }  // namespace xmp

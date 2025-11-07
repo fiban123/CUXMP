@@ -10,11 +10,16 @@ using cuxmp_base_t = uint8_t;
 
 // constants
 constexpr cuxmp_sum_t CUXMP_LIMB_BITS = 8ULL * sizeof(cuxmp_limb_t);
-constexpr cuxmp_len_t CUXMP_ADD_SB_MIN = 0;
 constexpr cuxmp_limb_t CUXMP_LIMB_MAX = UINT32_MAX;
 constexpr cuxmp_sum_t CUXMP_SUM_MAX = UINT64_MAX;
 constexpr char CUXMP_STR_CHARSET[] =
     "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+// operation bounds
+constexpr cuxmp_len_t CUXMP_ADD_SB_MIN = 0;
+
+constexpr cuxmp_len_t CUXMP_MUL_SB_MAX = 100;
+constexpr cuxmp_len_t CUXMP_MUL_NTTCRT_MAX = 1000;
 
 // statuses
 constexpr cuxmp_stat_t CUXMP_STAT_OK = 0;
