@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cmath>
 #include <cstring>
+#include <iostream>
 #include <vector>
 
 #include "xmpz.hpp"
@@ -11,7 +12,55 @@
 namespace xmp {
 
 // TEST SS and NTTC-CRT implementation
+// performance is not important rn. just want a working SS and NTTCRT to
+// optimize later.
 
+// helpers for debugging
+
+// boilerplate i copied online
+inline std::string to_string_u128(__uint128_t value) {
+    if (value == 0) return "0";
+    std::string result;
+    while (value > 0) {
+        int digit = value % 10;
+        result.push_back('0' + digit);
+        value /= 10;
+    }
+    std::reverse(result.begin(), result.end());
+    return result;
+}
+
+inline void _d_xmpz_print_limb_arr(const cuxmp_limb_t* limbs, cuxmp_len_t n) {
+    std::cout << "N = " << n << ": ";
+    for (cuxmp_len_t i = 0; i < n; i++) {
+        std::cout << limbs[i] << ", ";
+    }
+    std::cout << '\n';
+}
+
+inline void _d_xmpz_print_limbs(const xmpz_t& src) {
+    _d_xmpz_print_limb_arr(src.limbs, src.n);
+}
+
+inline void _d_xmpz_print_xmpz_arr(const xmpz_arr_t src, const cuxmp_len_t n) {
+    std::cout << "arr N = " << n << "\n";
+    for (cuxmp_len_t i = 0; i < n; i++) {
+        _d_xmpz_print_limbs(src[i]);
+    }
+}
+
+inline void _d_xmpz_print_coef_arr(const cuxmp_crt_coef_t* arr,
+                                   const cuxmp_len_t n) {
+    std::cout << "coef N = " << n << ": ";
+
+    for (cuxmp_len_t i = 0; i < n; i++) {
+        std::cout << to_string_u128(arr[i]) << ", ";
+    }
+
+    std::cout << "\n";
+}
+
+// public
 cuxmp_stat_t xmpz_mul_sb(xmpz_t& dst, const xmpz_t& left_op,
                          const xmpz_t& right_op);
 
@@ -36,18 +85,40 @@ CUXMP_ALWAYS_INLINE void _xmpz_ui32invntt(xmpz_t& dst, const xmpz_t& src,
     // ...
 }
 
-// requires at least parts[0].n be reserved in dst. all parts must have same N.
-CUXMP_ALWAYS_INLINE void _xmpz_crt(xmpz_t& dst, const xmpz_arr_t parts,
-                                   const cuxmp_limb_t* primes,
-                                   const cuxmp_len_t n_primes) {
-    // use CRT to turn limbs of the parts and their primes into a single
-    // polynomial (represented in limbs)
+CUXMP_ALWAYS_INLINE void _xmpz_coef_add_eq_offset(xmpz_t& dst,
+                                                  const cuxmp_crt_coef_t& coef,
+                                                  const cuxmp_len_t offset) {
+    // shouldnt be too difficult
 }
 
-// requires at least coef_src.n be reserved in dst
-CUXMP_ALWAYS_INLINE void _xmpz_construct_from_coef(xmpz_t& dst,
-                                                   const xmpz_t& coef_src) {
-    // probably not too difficult either ?
+CUXMP_ALWAYS_INLINE void _xmpz_construct_coef_crt(xmpz_t& dst,
+                                                  const xmpz_arr_t dst_parts,
+                                                  const cuxmp_len_t dst_part_n,
+                                                  const cuxmp_limb_t* primes,
+                                                  const cuxmp_len_t n_primes) {
+    // cuxmp_crt_coef_t is a __uint128_t on the CPU
+    // on the GPU, this will be a custom uint128 made of 2 uint64s with add,
+    // sub, ... functionality. way faster than a dynamically sized xmpz
+    // since ui128 can fit 2^64 * 2^64, so any product of 2 ui32 limbs with
+    // N=2^64
+    std::vector<cuxmp_crt_coef_t> crt_coefs(dst_part_n);
+
+    // for each prime (part)
+    for (cuxmp_len_t p_i = 0; p_i < n_primes; p_i++) {
+        cuxmp_limb_t prime = primes[p_i];
+        // for each limb
+        for (cuxmp_len_t l = 0; l < dst_part_n; l++) {
+            // get ui128 coef using crt
+            // crt_coefs[i] = ...
+        }
+    }
+
+    // construct final dst from crt coefs
+    for (cuxmp_len_t c_i = 0; c_i < crt_coefs.size(); c_i++) {
+        cuxmp_crt_coef_t& coef = crt_coefs[c_i];
+        // not sure if this offset is correct
+        _xmpz_coef_add_eq_offset(dst, coef, c_i);
+    }
 }
 
 CUXMP_ALWAYS_INLINE cuxmp_limb_t* _xmpz_ntt_find_primes(
@@ -66,21 +137,21 @@ CUXMP_ALWAYS_INLINE void _xmpz_pointwise_mul_mod(xmpz_t& dst,
 CUXMP_ALWAYS_INLINE void _xmpz_mul_nttcrt(xmpz_t& dst, const xmpz_t& left_op,
                                           const xmpz_t& right_op,
                                           const cuxmp_limb_t* primes,
-                                          const cuxmp_len_t primes_n) {
+                                          const cuxmp_len_t n_primes) {
     assert(left_op.n == right_op.n);
     assert(std::exp2(std::log2(left_op.n)) ==
            left_op.n);  // make sure N is a power of 2
 
     // use vector bc it automatically default constructs each number
     // and wont be included in any C header files.
-    std::vector<xmpz_t> dst_parts(primes_n);
+    std::vector<xmpz_t> dst_parts(n_primes);
 
     xmpz_t left_ntt;
     xmpz_t right_ntt;
     xmpz_t ntt_product;
 
     // for each prime
-    for (cuxmp_len_t p_i = 0; p_i < primes_n; p_i++) {
+    for (cuxmp_len_t p_i = 0; p_i < n_primes; p_i++) {
         cuxmp_limb_t p = primes[p_i];
         // take NTT of left and right
         _xmpz_ui32ntt(left_ntt, left_op, p);
@@ -91,14 +162,9 @@ CUXMP_ALWAYS_INLINE void _xmpz_mul_nttcrt(xmpz_t& dst, const xmpz_t& left_op,
         _xmpz_ui32invntt(dst_parts[p_i], ntt_product, p);
     }
 
-    xmpz_t dst_coef;
-    dst_coef.reserve(left_op.n);
-    // perform crt
-    // does this really need 64 bit limbs? and can it return the limbs as 32 bit
-    // limbs?
-    _xmpz_crt(dst_coef, dst_parts.data(), primes, primes_n);
-    dst.reserve(left_op.n);
-    _xmpz_construct_from_coef(dst, dst_coef);
+    // reconstruct using crt
+    _xmpz_construct_coef_crt(dst, dst_parts.data(), left_op.n, primes,
+                             n_primes);
 }
 
 // Schönhagen-Strassen
@@ -125,10 +191,10 @@ CUXMP_ALWAYS_INLINE cuxmp_len_t _xmpz_ss_find_k(const cuxmp_len_t chunk_size,
                                                 const cuxmp_len_t right_n) {
     // must return a power of 2
 
-    cuxmp_len_t k_left = left_n / chunk_size + 1;
-    cuxmp_len_t k_right = right_n / chunk_size + 1;
+    cuxmp_len_t k_left = (left_n + chunk_size - 1) / chunk_size;
+    cuxmp_len_t k_right = (right_n + chunk_size - 1) / chunk_size;
 
-    cuxmp_len_t k = 0;
+    cuxmp_len_t k = 1;
     while (k <= k_left + k_right - 1) {
         k <<= 1;
     }
@@ -141,11 +207,13 @@ CUXMP_ALWAYS_INLINE void _xmpz_ss_make_chunks(xmpz_arr_t dst, const xmpz_t& src,
                                               const cuxmp_len_t k) {
     // make k even-sized chunks of limbs out of limbs of src
     assert(src.n % k == 0);
+    cuxmp_len_t chunk_size = src.n / k;
 
-    for (cuxmp_len_t i = 0; i < src.n / k; i++) {
-        dst[i].reserve(k);
-        memcpy(dst[i].limbs, &src.limbs[i * k], k * sizeof(cuxmp_limb_t));
-        dst[i].n = k;
+    for (cuxmp_len_t i = 0; i < k; i++) {
+        dst[i].reserve(chunk_size);
+        memcpy(dst[i].limbs, &src.limbs[i * chunk_size],
+               k * sizeof(cuxmp_limb_t));
+        dst[i].n = chunk_size;
     }
 }
 
@@ -185,8 +253,8 @@ CUXMP_ALWAYS_INLINE void _xmpz_mul_ss(xmpz_t& dst, const xmpz_t& left_op,
     std::vector<xmpz_t> left_chunks(k);
     std::vector<xmpz_t> right_chunks(k);
 
-    _xmpz_ss_make_chunks(left_chunks.data(), left_op, k);
-    _xmpz_ss_make_chunks(right_chunks.data(), right_op, k);
+    _xmpz_ss_make_chunks(left_chunks.data(), left_padded, k);
+    _xmpz_ss_make_chunks(right_chunks.data(), right_padded, k);
 
     // take xmpz NTT of chunks
     std::vector<xmpz_t> left_chunks_ntt(k);
@@ -211,7 +279,6 @@ CUXMP_ALWAYS_INLINE void _xmpz_mul_ss(xmpz_t& dst, const xmpz_t& left_op,
     _xmpz_xmpzinvntt(dst_chunks.data(), dst_chunks_ntt.data(), m);
 
     // generate final product
-    dst.reserve(n + 1);
 
     _xmpz_ss_concat_chunks(dst, dst_chunks.data());
 }

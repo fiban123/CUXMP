@@ -7,6 +7,7 @@ using cuxmp_len_t = size_t;
 using cuxmp_stat_t = uint8_t;
 using cuxmp_sum_t = uint64_t;
 using cuxmp_base_t = uint8_t;
+using cuxmp_crt_coef_t = __uint128_t;
 
 // constants
 constexpr cuxmp_sum_t CUXMP_LIMB_BITS = 8ULL * sizeof(cuxmp_limb_t);
