@@ -19,7 +19,7 @@ constexpr char CUXMP_STR_CHARSET[] =
 constexpr cuxmp_len_t CUXMP_ADD_SB_MIN = 0;
 
 constexpr cuxmp_len_t CUXMP_MUL_SB_MAX = 100;
-constexpr cuxmp_len_t CUXMP_MUL_NTTCRT_MAX = 1000;
+constexpr cuxmp_len_t CUXMP_MUL_NTTCRT_MAX = 100000;
 
 // statuses
 constexpr cuxmp_stat_t CUXMP_STAT_OK = 0;
