@@ -248,7 +248,7 @@ CUXMP_ALWAYS_INLINE void _xmpz_ss_make_chunks(xmpz_arr_t dst, const xmpz_t& src,
     for (cuxmp_len_t i = 0; i < k; i++) {
         dst[i].reserve(chunk_size);
         memcpy(dst[i].limbs, &src.limbs[i * chunk_size],
-               k * sizeof(cuxmp_limb_t));
+               chunk_size * sizeof(cuxmp_limb_t));
         dst[i].n = chunk_size;
     }
 }
