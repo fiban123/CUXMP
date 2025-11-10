@@ -22,7 +22,7 @@ cuxmp_stat_t xmp::xmpz_mul_nttcrt(xmpz_t& dst, const xmpz_t left_op,
     }
 
     cuxmp_len_t n_primes;
-    cuxmp_limb_t* primes = _xmpz_ntt_find_primes(n, n_primes);
+    xmp_ntt_prime* primes = _xmpz_ntt_find_primes(n, n_primes);
 
     xmpz_t left_padded, right_padded;
     _xmpz_pad(left_padded, left_op, n);
@@ -33,7 +33,7 @@ cuxmp_stat_t xmp::xmpz_mul_nttcrt(xmpz_t& dst, const xmpz_t left_op,
     dst.n = n;
     memset(dst.limbs, 0, n * sizeof(cuxmp_limb_t));
 
-    (void)_xmpz_mul_nttcrt(dst, left_op, right_op, primes, n_primes);
+    (void)_xmpz_mul_nttcrt(dst, left_padded, right_padded, primes, n_primes);
 
     free(primes);
 

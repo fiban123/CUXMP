@@ -29,7 +29,7 @@ CUXMP_ALWAYS_INLINE void _xmpz_coef_add_eq_offset(xmpz_t& dst,
     cuxmp_sum_t carry = 0;
     for (cuxmp_static_bit_len_t i = 0;
          i < sizeof(cuxmp_crt_coef_t) / sizeof(cuxmp_limb_t); i++) {
-        cuxmp_static_bit_len_t bit_offset = i * sizeof(cuxmp_limb_t);
+        cuxmp_static_bit_len_t bit_offset = i * CUXMP_LIMB_BITS;
         cuxmp_sum_t sum = (cuxmp_sum_t)dst.limbs[offset] +
                           (cuxmp_limb_t)(coef >> bit_offset) + carry;
 
@@ -44,7 +44,7 @@ CUXMP_ALWAYS_INLINE void _xmpz_coef_add_eq_offset(xmpz_t& dst,
         for (cuxmp_len_t i = 0; i < sizeof(cuxmp_sum_t) / sizeof(cuxmp_limb_t);
              i++) {
             cuxmp_sum_t sum = (cuxmp_sum_t)dst.limbs[carry_offset + i] + carry;
-            dst.limbs[i] = (cuxmp_limb_t)sum;
+            dst.limbs[carry_offset + i] = (cuxmp_limb_t)sum;
             carry = sum >> CUXMP_LIMB_BITS;
             if (carry == 0) {
                 break;

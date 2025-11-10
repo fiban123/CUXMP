@@ -75,6 +75,7 @@ cuxmp_stat_t xmpz_mul(xmpz_t& dst, const xmpz_t& left_op,
                       const xmpz_t& right_op);
 
 // helpers
+
 // pad a number with 0s to length n
 CUXMP_ALWAYS_INLINE void _xmpz_pad(xmpz_t& dst, const xmpz_t& src,
                                    const cuxmp_len_t n) {
@@ -99,18 +100,33 @@ CUXMP_ALWAYS_INLINE void _xmpz_pad_eq(xmpz_t& dst, cuxmp_len_t n) {
 
 // NTT-CRT
 
+struct xmp_ntt_prime {
+    cuxmp_limb_t p;     // the prime
+    cuxmp_limb_t root;  // root of unity
+    cuxmp_sum_t m;      // the magic coefficient
+};
+
+constexpr static cuxmp_limb_t max_ntt_len = 1u >> 24;  // 2^24
+
+constexpr static xmp_ntt_prime ntt_primes[] = {
+    {4194304001u, 250, 4398046510ull},
+    {4076863489u, 243, 4524739208ull},
+    {3942645761u, 235, 4678772883ull},
+    {3892314113u, 232, 4739274256ull},
+    {3489660929u, 208, 5286113594ull}};
+
 CUXMP_ALWAYS_INLINE void _xmpz_ui32ntt(xmpz_t& dst, const xmpz_t& src,
-                                       const cuxmp_limb_t prime) {
+                                       const xmp_ntt_prime prime) {
     // this and inv NTT probably most difficult and crucial for performance
 }
 
 CUXMP_ALWAYS_INLINE void _xmpz_ui32invntt(xmpz_t& dst, const xmpz_t& src,
-                                          const cuxmp_limb_t prime) {
+                                          const xmp_ntt_prime prime) {
     // ...
 }
 
 CUXMP_ALWAYS_INLINE cuxmp_crt_coef_t
-_xmpz_crt_solve(const cuxmp_limb_t* prime_limbs, const cuxmp_limb_t* primes,
+_xmpz_crt_solve(const cuxmp_limb_t* prime_limbs, const xmp_ntt_prime* primes,
                 const cuxmp_len_t n_primes) {
     // does not sound easy
 }
@@ -118,7 +134,7 @@ _xmpz_crt_solve(const cuxmp_limb_t* prime_limbs, const cuxmp_limb_t* primes,
 CUXMP_ALWAYS_INLINE void _xmpz_construct_coef_crt(xmpz_t& dst,
                                                   const xmpz_arr_t dst_parts,
                                                   const cuxmp_len_t dst_part_n,
-                                                  const cuxmp_limb_t* primes,
+                                                  const xmp_ntt_prime* primes,
                                                   const cuxmp_len_t n_primes) {
     // cuxmp_crt_coef_t is a __uint128_t on the CPU
     // on the GPU, this will be a custom uint128 made of 2 uint64s with add,
@@ -145,33 +161,55 @@ CUXMP_ALWAYS_INLINE void _xmpz_construct_coef_crt(xmpz_t& dst,
     }
 }
 
-CUXMP_ALWAYS_INLINE cuxmp_limb_t* _xmpz_ntt_find_primes(
+CUXMP_ALWAYS_INLINE xmp_ntt_prime* _xmpz_ntt_find_primes(
     const cuxmp_len_t n, cuxmp_len_t& out_prime_n) {
     // just some if statements that return different predetermined primes
+    //
+    xmp_ntt_prime* primes;
+
+    // horribly inefficient heap allocation rn. But i might need to change the
+    // amount of primes later, so keeping it dynamic for now.
+
+    // p1 * p2 * p3 is bigger than n * 2^64 for all n < 3654720002. this is way
+    // bigger than 2^24, our max n
+
+    primes = (xmp_ntt_prime*)std::malloc(3 * sizeof(xmp_ntt_prime));
+    primes[0] = ntt_primes[0];
+    primes[1] = ntt_primes[1];
+    primes[2] = ntt_primes[2];
+    out_prime_n = 3;
+
+    return primes;
 }
 
 CUXMP_ALWAYS_INLINE void _xmpz_pointwise_mul_mod(xmpz_t& dst,
                                                  const xmpz_t& left_op,
                                                  const xmpz_t& right_op,
-                                                 const cuxmp_limb_t m) {
+                                                 const xmp_ntt_prime& p) {
     assert(left_op.n == right_op.n && left_op.n <= dst.n);
 
     // do dst = left * right mod m for each limb.
     // not sure if this is correct
     for (cuxmp_len_t i = 0; i < left_op.n; i++) {
-        dst.limbs[i] = (cuxmp_sum_t)(left_op.limbs[i] * right_op.limbs[i]) %
-                       (cuxmp_limb_t)m;
+        cuxmp_sum_t prod = (cuxmp_sum_t)(left_op.limbs[i] * right_op.limbs[i]);
+
+        cuxmp_crt_coef_t p_prod = (cuxmp_crt_coef_t)p.m * prod;
+        cuxmp_sum_t q_est = (cuxmp_sum_t)(p_prod >> CUXMP_SUM_BITS);
+
+        cuxmp_sum_t r = prod - q_est * p.p;
+
+        dst.limbs[i] = (cuxmp_limb_t)((r >= p.p) ? (r - p.p) : r);
     }
 }
 
 // right_op.n must = left_op.n, N must be a power of 2
 CUXMP_ALWAYS_INLINE void _xmpz_mul_nttcrt(xmpz_t& dst, const xmpz_t& left_op,
                                           const xmpz_t& right_op,
-                                          const cuxmp_limb_t* primes,
+                                          const xmp_ntt_prime* primes,
                                           const cuxmp_len_t n_primes) {
     assert(left_op.n == right_op.n);
-    assert(std::exp2(std::log2(left_op.n)) ==
-           left_op.n);  // make sure N is a power of 2
+    // use fancy bit tricks to check if N is a power of 2
+    assert(left_op.n > 0 && (left_op.n & (left_op.n - 1)) == 0);
 
     // use vector bc it automatically default constructs each number
     // and wont be included in any C header files.
@@ -183,7 +221,7 @@ CUXMP_ALWAYS_INLINE void _xmpz_mul_nttcrt(xmpz_t& dst, const xmpz_t& left_op,
 
     // for each prime
     for (cuxmp_len_t p_i = 0; p_i < n_primes; p_i++) {
-        cuxmp_limb_t p = primes[p_i];
+        xmp_ntt_prime p = primes[p_i];
         // take NTT of left and right
         _xmpz_ui32ntt(left_ntt, left_op, p);
         _xmpz_ui32ntt(right_ntt, right_op, p);

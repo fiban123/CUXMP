@@ -11,7 +11,8 @@ using cuxmp_crt_coef_t = __uint128_t;
 using cuxmp_static_bit_len_t = uint16_t;
 
 // constants
-constexpr cuxmp_sum_t CUXMP_LIMB_BITS = 8ULL * sizeof(cuxmp_limb_t);
+constexpr cuxmp_static_bit_len_t CUXMP_LIMB_BITS = 8 * sizeof(cuxmp_limb_t);
+constexpr cuxmp_static_bit_len_t CUXMP_SUM_BITS = 8 * sizeof(cuxmp_sum_t);
 constexpr cuxmp_limb_t CUXMP_LIMB_MAX = UINT32_MAX;
 constexpr cuxmp_sum_t CUXMP_SUM_MAX = UINT64_MAX;
 constexpr char CUXMP_STR_CHARSET[] =
