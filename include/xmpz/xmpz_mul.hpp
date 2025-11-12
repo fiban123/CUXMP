@@ -8,6 +8,7 @@
 
 #include "xmpz.hpp"
 #include "xmpz_add.hpp"
+#include "xmpz_kernel.hpp"
 #include "xmpz_set.hpp"
 
 namespace xmp {
@@ -100,35 +101,32 @@ CUXMP_ALWAYS_INLINE void _xmpz_pad_eq(xmpz_t& dst, cuxmp_len_t n) {
 
 // NTT-CRT
 
-struct xmp_ntt_prime {
-    cuxmp_limb_t p;     // the prime
-    cuxmp_limb_t root;  // root of unity
-    cuxmp_sum_t m;      // the magic coefficient
-};
+CUXMP_ALWAYS_INLINE void _xmpz_ui32ntt_fwd(xmpz_t& dst, const xmpz_t& src,
+                                           const xmp_ntt_prime& prime) {
+    assert(src.n > 0 && (src.n & (src.n - 1)) == 0);
+    assert(src.n <= max_ntt_len);
 
-constexpr static cuxmp_limb_t max_ntt_len = 1u >> 24;  // 2^24
+    // copy src to dst
+    dst.reserve(src.n);
+    memcpy(dst.limbs, src.limbs, src.n * sizeof(cuxmp_limb_t));
 
-constexpr static xmp_ntt_prime ntt_primes[] = {
-    {4194304001u, 250, 4398046510ull},
-    {4076863489u, 243, 4524739208ull},
-    {3942645761u, 235, 4678772883ull},
-    {3892314113u, 232, 4739274256ull},
-    {3489660929u, 208, 5286113594ull}};
+    _xmpz_ntt_bit_reverse(dst.limbs, dst.n);
 
-CUXMP_ALWAYS_INLINE void _xmpz_ui32ntt(xmpz_t& dst, const xmpz_t& src,
-                                       const xmp_ntt_prime prime) {
-    // this and inv NTT probably most difficult and crucial for performance
+    _ui32ntt_fwd_kernel(dst.limbs, dst.n, prime);
 }
 
-CUXMP_ALWAYS_INLINE void _xmpz_ui32invntt(xmpz_t& dst, const xmpz_t& src,
-                                          const xmp_ntt_prime prime) {
-    // ...
-}
+CUXMP_ALWAYS_INLINE void _xmpz_ui32ntt_inv(xmpz_t& dst, const xmpz_t& src,
+                                           const xmp_ntt_prime& prime) {
+    assert(src.n > 0 && (src.n & (src.n - 1)) == 0);
+    assert(src.n <= max_ntt_len);
 
-CUXMP_ALWAYS_INLINE cuxmp_crt_coef_t
-_xmpz_crt_solve(const cuxmp_limb_t* prime_limbs, const xmp_ntt_prime* primes,
-                const cuxmp_len_t n_primes) {
-    // does not sound easy
+    // copy src to dst
+    dst.reserve(src.n);
+    memcpy(dst.limbs, src.limbs, src.n * sizeof(cuxmp_limb_t));
+
+    _ui32ntt_inv_kernel(dst.limbs, dst.n, prime);
+
+    _xmpz_ntt_bit_reverse(dst.limbs, dst.n);
 }
 
 CUXMP_ALWAYS_INLINE void _xmpz_construct_coef_crt(xmpz_t& dst,
@@ -163,12 +161,15 @@ CUXMP_ALWAYS_INLINE void _xmpz_construct_coef_crt(xmpz_t& dst,
 
 CUXMP_ALWAYS_INLINE xmp_ntt_prime* _xmpz_ntt_find_primes(
     const cuxmp_len_t n, cuxmp_len_t& out_prime_n) {
-    // just some if statements that return different predetermined primes
-    //
     xmp_ntt_prime* primes;
 
     // horribly inefficient heap allocation rn. But i might need to change the
     // amount of primes later, so keeping it dynamic for now.
+
+    // if the number of primes always stays constant, i can evaluate the twiddle
+    // factors at compile time would probably also allow me to replace every
+    // shoup mul and barret mul with a u64 mul + bitshift, like GCC does when
+    // modulos are known at compile time.
 
     // p1 * p2 * p3 is bigger than n * 2^64 for all n < 3654720002. this is way
     // bigger than 2^24, our max n
@@ -211,8 +212,6 @@ CUXMP_ALWAYS_INLINE void _xmpz_mul_nttcrt(xmpz_t& dst, const xmpz_t& left_op,
     // use fancy bit tricks to check if N is a power of 2
     assert(left_op.n > 0 && (left_op.n & (left_op.n - 1)) == 0);
 
-    // use vector bc it automatically default constructs each number
-    // and wont be included in any C header files.
     std::vector<xmpz_t> dst_parts(n_primes);
 
     xmpz_t left_ntt;
@@ -223,18 +222,13 @@ CUXMP_ALWAYS_INLINE void _xmpz_mul_nttcrt(xmpz_t& dst, const xmpz_t& left_op,
     for (cuxmp_len_t p_i = 0; p_i < n_primes; p_i++) {
         xmp_ntt_prime p = primes[p_i];
         // take NTT of left and right
-        _xmpz_ui32ntt(left_ntt, left_op, p);
-        _xmpz_ui32ntt(right_ntt, right_op, p);
+        _xmpz_ui32ntt_fwd(left_ntt, left_op, p);
+        _xmpz_ui32ntt_fwd(right_ntt, right_op, p);
         // perform the pointwise multiplication mod p
         _xmpz_pointwise_mul_mod(ntt_product, left_ntt, right_ntt, p);
         // do the inverse ntt and put it in the destination
-        _xmpz_ui32invntt(dst_parts[p_i], ntt_product, p);
+        _xmpz_ui32ntt_inv(dst_parts[p_i], ntt_product, p);
     }
-    // i think its possible for dst to not be large enough when using more than
-    // one prime.
-    _xmpz_pad_eq(dst,
-                 left_op.n + (sizeof(cuxmp_crt_coef_t) + sizeof(cuxmp_sum_t)) /
-                                 sizeof(cuxmp_limb_t));
 
     // reconstruct using crt
     _xmpz_construct_coef_crt(dst, dst_parts.data(), left_op.n, primes,
