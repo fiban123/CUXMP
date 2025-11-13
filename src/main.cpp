@@ -2,6 +2,7 @@
 #include <iostream>
 #include <string>
 
+#include "test.hpp"
 #include "xmp.hpp"
 
 using namespace xmp;
@@ -31,7 +32,9 @@ int main() {
 
     std::cout << s << std::endl;
 
-    find_primes();
+    test_const();
+
+    // find_primes();
 }
 
 using namespace std;
@@ -84,8 +87,8 @@ bool is_prime(uint64_t n) {
 }
 
 int find_primes() {
-    constexpr uint64_t MAX_BITS = 32;
-    constexpr uint64_t N = 1ULL << 24;  // 2^20
+    constexpr uint64_t MAX_BITS = 31;
+    constexpr uint64_t N = 1ULL << 23;  // 2^20
     const uint64_t MAX_P = 1ULL << MAX_BITS;
 
     cout << "Searching for 30-bit NTT primes of the form p = m*2^20 + 1...\n";

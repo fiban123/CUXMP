@@ -109,8 +109,9 @@ CUXMP_ALWAYS_INLINE void _xmpz_ui32ntt_fwd(xmpz_t& dst, const xmpz_t& src,
     // copy src to dst
     dst.reserve(src.n);
     memcpy(dst.limbs, src.limbs, src.n * sizeof(cuxmp_limb_t));
+    dst.n = src.n;
 
-    _xmpz_ntt_bit_reverse(dst.limbs, dst.n);
+    _ntt_bit_reverse(dst.limbs, dst.n);
 
     _ui32ntt_fwd_kernel(dst.limbs, dst.n, prime);
 }
@@ -123,10 +124,11 @@ CUXMP_ALWAYS_INLINE void _xmpz_ui32ntt_inv(xmpz_t& dst, const xmpz_t& src,
     // copy src to dst
     dst.reserve(src.n);
     memcpy(dst.limbs, src.limbs, src.n * sizeof(cuxmp_limb_t));
+    dst.n = src.n;
 
     _ui32ntt_inv_kernel(dst.limbs, dst.n, prime);
 
-    _xmpz_ntt_bit_reverse(dst.limbs, dst.n);
+    _ntt_bit_reverse(dst.limbs, dst.n);
 }
 
 CUXMP_ALWAYS_INLINE void _xmpz_construct_coef_crt(xmpz_t& dst,
@@ -149,10 +151,9 @@ CUXMP_ALWAYS_INLINE void _xmpz_construct_coef_crt(xmpz_t& dst,
         for (cuxmp_len_t p_i = 0; p_i < n_primes; p_i++) {
             prime_limbs[p_i] = dst_parts[p_i].limbs[c_i];
         }
-
         // get true coeffficient
-        cuxmp_crt_coef_t coef = _xmpz_crt_solve(prime_limbs.data(), primes,
-                                                n_primes /* CRT constants */);
+        cuxmp_crt_coef_t coef = _crt_solve_kernel(prime_limbs.data(), primes,
+                                                  n_primes /* CRT constants */);
 
         // add coefficient
         _xmpz_coef_add_eq_offset(dst, coef, c_i);
