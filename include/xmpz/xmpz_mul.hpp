@@ -151,9 +151,13 @@ CUXMP_ALWAYS_INLINE void _xmpz_construct_coef_crt(xmpz_t& dst,
         for (cuxmp_len_t p_i = 0; p_i < n_primes; p_i++) {
             prime_limbs[p_i] = dst_parts[p_i].limbs[c_i];
         }
+        _d_xmpz_print_limb_arr(prime_limbs.data(), n_primes);
+
         // get true coeffficient
         cuxmp_crt_coef_t coef = _crt_solve_kernel(prime_limbs.data(), primes,
                                                   n_primes /* CRT constants */);
+
+        std::cout << to_string_u128(coef) << "\n";
 
         // add coefficient
         _xmpz_coef_add_eq_offset(dst, coef, c_i);
@@ -188,7 +192,9 @@ CUXMP_ALWAYS_INLINE void _xmpz_pointwise_mul_mod(xmpz_t& dst,
                                                  const xmpz_t& left_op,
                                                  const xmpz_t& right_op,
                                                  const xmp_ntt_prime& p) {
-    assert(left_op.n == right_op.n && left_op.n <= dst.n);
+    assert(left_op.n == right_op.n);
+    std::cout << left_op.n << " " << dst.reserved << "\n";
+    assert(left_op.n <= dst.reserved);
 
     // do dst = left * right mod m for each limb.
     // not sure if this is correct
@@ -204,7 +210,8 @@ CUXMP_ALWAYS_INLINE void _xmpz_pointwise_mul_mod(xmpz_t& dst,
     }
 }
 
-// right_op.n must = left_op.n, N must be a power of 2
+// right_op.n must = left_op.n, N must be a power of 2, dst.n must be left_op.n
+// + right_op.n + 6
 CUXMP_ALWAYS_INLINE void _xmpz_mul_nttcrt(xmpz_t& dst, const xmpz_t& left_op,
                                           const xmpz_t& right_op,
                                           const xmp_ntt_prime* primes,
@@ -219,6 +226,16 @@ CUXMP_ALWAYS_INLINE void _xmpz_mul_nttcrt(xmpz_t& dst, const xmpz_t& left_op,
     xmpz_t right_ntt;
     xmpz_t ntt_product;
 
+    ntt_product.reserve(left_op.n);
+    ntt_product.n = left_op.n;
+
+    std::cout << "ops\n";
+
+    _d_xmpz_print_limbs(left_op);
+    _d_xmpz_print_limbs(right_op);
+
+    std::cout << "\n";
+
     // for each prime
     for (cuxmp_len_t p_i = 0; p_i < n_primes; p_i++) {
         xmp_ntt_prime p = primes[p_i];
@@ -229,10 +246,14 @@ CUXMP_ALWAYS_INLINE void _xmpz_mul_nttcrt(xmpz_t& dst, const xmpz_t& left_op,
         _xmpz_pointwise_mul_mod(ntt_product, left_ntt, right_ntt, p);
         // do the inverse ntt and put it in the destination
         _xmpz_ui32ntt_inv(dst_parts[p_i], ntt_product, p);
+        _d_xmpz_print_limbs(left_ntt);
+        _d_xmpz_print_limbs(right_ntt);
+        _d_xmpz_print_limbs(ntt_product);
+        _d_xmpz_print_limbs(dst_parts[p_i]);
     }
 
     // reconstruct using crt
-    _xmpz_construct_coef_crt(dst, dst_parts.data(), left_op.n, primes,
+    _xmpz_construct_coef_crt(dst, dst_parts.data(), ntt_product.n, primes,
                              n_primes);
 }
 

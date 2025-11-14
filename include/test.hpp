@@ -10,6 +10,7 @@
 #include <random>
 
 #include "xmpz/xmpz.hpp"
+#include "xmpz/xmpz_get.hpp"
 #include "xmpz/xmpz_kernel.hpp"
 #include "xmpz/xmpz_mul.hpp"
 
@@ -20,7 +21,7 @@ using namespace xmp;
 #define WHITE "\e[0;97m"
 
 inline int n_primes = 3;
-inline int check_n = 1000;
+inline int check_n = 1;
 inline std::string corr = GREEN "correct" WHITE;
 inline std::string wrng = RED "WRONG !!!" WHITE;
 
@@ -235,4 +236,101 @@ inline void test_const() {
             cuxmp_limb_t c = (cuxmp_limb_t)(x % ntt_primes[i].p);
         }
     }
+
+    std::cout << "mul test\n";
+
+    xmpz_t a, b, c, d;
+
+    std::vector<cuxmp_limb_t> a_limbs = {10, 10, 10, 10, 0, 0, 0, 0};
+    std::vector<cuxmp_limb_t> b_limbs = {5, 5, 5, 5, 0, 0, 0, 0};
+
+    a.reserve(a_limbs.size());
+    b.reserve(a_limbs.size());
+    c.reserve(a_limbs.size() * 2 + 6);
+
+    memcpy(a.limbs, a_limbs.data(), a_limbs.size());
+    memcpy(b.limbs, b_limbs.data(), b_limbs.size());
+
+    a.n = 8;
+    b.n = 8;
+    // c.n = c.reserved;
+
+    memset(c.limbs, 0, c.reserved * sizeof(cuxmp_limb_t));
+
+    a.limbs = a_limbs.data();
+    b.limbs = b_limbs.data();
+
+    print_arr(a.limbs, a.n);
+    print_arr(b.limbs, b.n);
+
+    _xmpz_mul_nttcrt(c, a, b, ntt_primes, n_primes);
+
+    xmpz_mul(d, a, b);
+
+    print_arr(c.limbs, c.n);
+    print_arr(d.limbs, c.n);
+
+    cuxmp_len_t len;
+    char* str = xmpz_get_str(c, 10, len);
+    std::cout.write(str, len);
+    std::cout << "\n";
+    free(str);
+
+    str = xmpz_get_str(a, 10, len);
+    std::cout.write(str, len);
+    std::cout << "\n";
+    free(str);
+
+    str = xmpz_get_str(b, 10, len);
+    std::cout.write(str, len);
+    std::cout << "\n";
+    free(str);
+
+    str = xmpz_get_str(d, 10, len);
+    std::cout.write(str, len);
+    std::cout << "\n";
+    free(str);
+
+    /*output:
+     mul test
+10, 10, 10, 10, 0, 0, 0, 0,
+5, 5, 5, 5, 0, 0, 0, 0,
+ops
+N = 8: 10, 10, 10, 10, 0, 0, 0, 0,
+N = 8: 5, 5, 5, 5, 0, 0, 0, 0,
+
+8 8
+N = 8: 40, 40, 0, 0, 0, 0, 0, 0,
+N = 8: 20, 20, 0, 0, 0, 0, 0, 0,
+N = 8: 800, 800, 0, 0, 0, 0, 0, 0,
+N = 8: 200, 200, 200, 200, 0, 0, 0, 0,
+8 8
+N = 8: 40, 40, 0, 0, 0, 0, 0, 0,
+N = 8: 20, 20, 0, 0, 0, 0, 0, 0,
+N = 8: 800, 800, 0, 0, 0, 0, 0, 0,
+N = 8: 200, 200, 200, 200, 0, 0, 0, 0,
+8 8
+N = 8: 40, 40, 0, 0, 0, 0, 0, 0,
+N = 8: 20, 20, 0, 0, 0, 0, 0, 0,
+N = 8: 800, 800, 0, 0, 0, 0, 0, 0,
+N = 8: 200, 200, 200, 200, 0, 0, 0, 0,
+N = 3: 200, 200, 200,
+200
+N = 3: 200, 200, 200,
+200
+N = 3: 200, 200, 200,
+200
+N = 3: 200, 200, 200,
+200
+N = 3: 0, 0, 0,
+0
+N = 3: 0, 0, 0,
+0
+N = 3: 0, 0, 0,
+0
+N = 3: 0, 0, 0,
+0
+200, 200, 200, 200, 0, 0, 0,
+50, 100, 150, 200, 150, 100, 50,
+     * */
 }

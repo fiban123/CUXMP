@@ -15,13 +15,14 @@ cuxmp_stat_t xmpz_add_sb(xmpz_t& dst, const xmpz_t& bigger,
 cuxmp_stat_t xmpz_add(xmpz_t& dst, const xmpz_t& left_op,
                       const xmpz_t& right_op);
 
-// !: dst.n >= offset + 6
+// !: dst.reserved >= offset + 6
 CUXMP_ALWAYS_INLINE void _xmpz_coef_add_eq_offset(xmpz_t& dst,
                                                   const cuxmp_crt_coef_t& coef,
                                                   const cuxmp_len_t offset) {
-    assert(dst.n >= offset + 6);
-
     if (coef == 0) return;
+    assert(dst.reserved >= offset + 6);
+
+    dst.n = std::max(dst.n, offset + 4);
 
     // these loops will hopefully be unrolled
 
@@ -30,10 +31,11 @@ CUXMP_ALWAYS_INLINE void _xmpz_coef_add_eq_offset(xmpz_t& dst,
     for (cuxmp_static_bit_len_t i = 0;
          i < sizeof(cuxmp_crt_coef_t) / sizeof(cuxmp_limb_t); i++) {
         cuxmp_static_bit_len_t bit_offset = i * CUXMP_LIMB_BITS;
-        cuxmp_sum_t sum = (cuxmp_sum_t)dst.limbs[offset] +
+        cuxmp_sum_t sum = (cuxmp_sum_t)dst.limbs[offset + i] +
                           (cuxmp_limb_t)(coef >> bit_offset) + carry;
 
         dst.limbs[offset + i] = (cuxmp_limb_t)sum;
+
         carry = (sum >> CUXMP_LIMB_BITS);
     }
 
@@ -46,6 +48,7 @@ CUXMP_ALWAYS_INLINE void _xmpz_coef_add_eq_offset(xmpz_t& dst,
             cuxmp_sum_t sum = (cuxmp_sum_t)dst.limbs[carry_offset + i] + carry;
             dst.limbs[carry_offset + i] = (cuxmp_limb_t)sum;
             carry = sum >> CUXMP_LIMB_BITS;
+            dst.n++;
             if (carry == 0) {
                 break;
             }
